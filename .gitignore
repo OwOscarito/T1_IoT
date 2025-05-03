@@ -1,52 +1,70 @@
-# Prerequisites
-*.d
+### Generic
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
 
-# Object files
-*.o
-*.ko
-*.obj
-*.elf
+# Credentials
+.secrets
 
-# Linker output
-*.ilk
-*.map
-*.exp
+# Unnecesary
+*.log
+*.tmp
+*.bak
 
-# Precompiled Headers
-*.gch
-*.pch
+### VScode specific
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+!.vscode/*.code-snippets
 
-# Libraries
-*.lib
-*.a
-*.la
-*.lo
+# Local History for Visual Studio Code
+.history/
 
-# Shared objects (inc. Windows DLLs)
-*.dll
-*.so
-*.so.*
-*.dylib
+# Built Visual Studio Code Extensions
+*.vsix
 
-# Executables
-*.exe
-*.out
-*.app
-*.i*86
-*.x86_64
-*.hex
+*~
 
-# Debug files
-*.dSYM/
-*.su
-*.idb
-*.pdb
+### Linux specific
+# temporary files which can be created if a process still has a handle open of a deleted file
+.fuse_hidden*
 
-# Kernel Module Compile Results
-*.mod*
-*.cmd
-.tmp_versions/
-modules.order
-Module.symvers
-Mkfile.old
-dkms.conf
+# Metadata left by Dolphin file manager, which comes with KDE Plasma
+.directory
+
+# Linux trash folder which might appear on any partition or disk
+.Trash-*
+
+# .nfs files are created when an open file is removed but is still being accessed
+.nfs*
+
+# Log files created by default by the nohup command
+nohup.out
+
+### Vim specific
+# Swap
+[._]*.s[a-v][a-z]
+#!*.svg  # comment out if you don't need vector files
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Session
+Session.vim
+Sessionx.vim
+
+# Temporary
+.netrwhist
+*~
+# Auto-generated tag files
+tags
+# Persistent undo
+[._]*.un~
