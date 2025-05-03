@@ -1,14 +1,25 @@
 
 services:
   db:
-    image: postgres:15.2-alpine
-    env_file: ".env"
+    image: postgres:15-alpine
+    env_file: .env
     volumes:
       - postgres_data_iot:/var/lib/postgresql/data
-    restart: unless-stopped # Hace que el contenedor se reinicie a menos que se detenga manualmente 
+    restart: unless-stopped
     ports:
-      - 5432:5432 # Puerto de postgres
-  # Aqui el resto de servicios
+      - ${POSTGRES_PORT}:${POSTGRES_PORT}
+
+  server:
+    build:
+      context: raspberry
+    env_file: .env
+    restart: unless-stopped
+    volumes:
+      - ./raspberry:/server
+    ports:
+      - ${SERVER_PORT}:${SERVER_PORT}
+    depends_on:
+      - db
 
 volumes:
   postgres_data_iot:
