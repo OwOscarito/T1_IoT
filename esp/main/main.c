@@ -1,7 +1,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 #include "esp_event.h"
 #include "esp_log.h"
 #include "esp_system.h"
@@ -13,12 +12,11 @@
 #include "nvs_flash.h"
 #include "lwip/sockets.h" // Para sockets
 
-//Credenciales de WiFi
-
-#define WIFI_SSID "SSID"
-#define WIFI_PASSWORD "PASSOWRD"
-#define SERVER_IP     "192.168.0.1" // IP del servidor
-#define SERVER_PORT   1234
+// Credenciales de la red Wifi (configurar con idf.py menuconfig)
+#define WIFI_SSID CONFIG_WIFI_SSID
+#define WIFI_PASSWORD CONFIG_WIFI_PASSWORD
+#define SERVER_IP CONFIG_SERVER_IP
+#define SERVER_PORT CONFIG_SERVER_PORT
 
 // Variables de WiFi
 #define WIFI_CONNECTED_BIT BIT0
@@ -26,7 +24,6 @@
 static const char* TAG = "WIFI";
 static int s_retry_num = 0;
 static EventGroupHandle_t s_wifi_event_group;
-
 
 void event_handler(void* arg, esp_event_base_t event_base,
                           int32_t event_id, void* event_data) {

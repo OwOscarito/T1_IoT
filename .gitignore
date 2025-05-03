@@ -11,10 +11,12 @@ venv.bak/
 # Credentials
 .secrets
 
-# Unnecesary
+# Trancient
 *.log
 *.tmp
 *.bak
+*.cache
+*.out
 
 ### VScode specific
 .vscode/*

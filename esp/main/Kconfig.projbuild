@@ -1,0 +1,28 @@
+menu "Project Configuration"
+
+    config WIFI_SSID
+        string "Wi-Fi SSID"
+        default "myssid"
+        help
+            SSID (network name) for the esp to connect to.
+
+    config WIFI_PASSWORD
+        string "Wi-Fi Password"
+        default "mypassword"
+        help
+            WiFi password for the esp to use.
+   
+    config SERVER_IP
+        string "Server IP address"
+        default "192.168.0.1"
+        help
+            The IP address of the server.
+
+    config SERVER_PORT
+        int "Server port"
+        default 1234
+        help
+            The port that se server listens to.
+
+endmenu
+

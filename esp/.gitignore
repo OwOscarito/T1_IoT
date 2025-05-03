@@ -1,5 +1,6 @@
 # Generic gitignore for cmake projects
 build
+*sdkconfig*
 CMakeLists.txt.user
 CMakeCache.txt
 CMakeFiles
