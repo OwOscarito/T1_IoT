@@ -24,9 +24,14 @@ docker compose up -d
 docker compose down
 ```
 
+### Conectarse a la base de datos con psql
+
+```bash
+sudo docker exec -it <nombre contenedor> psql -U <usuario postgres> -d <base de datos> -W
+```
+
 ### Borrar la base de datos
 
 ```bash
-docker compose down 
 docker volume rm postgres_data_iot
 ```
