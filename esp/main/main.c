@@ -1,105 +1,17 @@
+
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
+#include <stdlib.h>
 
-#include "esp_event.h"
-#include "esp_log.h"
-#include "esp_system.h"
-#include "esp_wifi.h"
-#include "freertos/FreeRTOS.h"
-#include "freertos/event_groups.h"
-#include "lwip/err.h"
-#include "lwip/sys.h"
-#include "nvs_flash.h"
-#include "lwip/sockets.h" // Para sockets
+#include <esp_log.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/event_groups.h>
+#include <nvs_flash.h>
+#include <lwip/sockets.h>
 
-// Credenciales de la red Wifi (configurar con idf.py menuconfig)
-#define WIFI_SSID CONFIG_WIFI_SSID
-#define WIFI_PASSWORD CONFIG_WIFI_PASSWORD
-#define SERVER_IP CONFIG_SERVER_IP
-#define SERVER_PORT CONFIG_SERVER_PORT
-
-// Variables de WiFi
-#define WIFI_CONNECTED_BIT BIT0
-#define WIFI_FAIL_BIT BIT1
-static const char* TAG = "WIFI";
-static int s_retry_num = 0;
-static EventGroupHandle_t s_wifi_event_group;
-
-void event_handler(void* arg, esp_event_base_t event_base,
-                          int32_t event_id, void* event_data) {
-    if (event_base == WIFI_EVENT && event_id == WIFI_EVENT_STA_START) {
-        esp_wifi_connect();
-    } else if (event_base == WIFI_EVENT &&
-               event_id == WIFI_EVENT_STA_DISCONNECTED) {
-        if (s_retry_num < 10) {
-            esp_wifi_connect();
-            s_retry_num++;
-            ESP_LOGI(TAG, "retry to connect to the AP");
-        } else {
-            xEventGroupSetBits(s_wifi_event_group, WIFI_FAIL_BIT);
-        }
-        ESP_LOGI(TAG, "connect to the AP fail");
-    } else if (event_base == IP_EVENT && event_id == IP_EVENT_STA_GOT_IP) {
-        ip_event_got_ip_t* event = (ip_event_got_ip_t*)event_data;
-        ESP_LOGI(TAG, "got ip:" IPSTR, IP2STR(&event->ip_info.ip));
-        s_retry_num = 0;
-        xEventGroupSetBits(s_wifi_event_group, WIFI_CONNECTED_BIT);
-    }
-}
-
-void wifi_init_sta(char* ssid, char* password) {
-    s_wifi_event_group = xEventGroupCreate();
-
-    ESP_ERROR_CHECK(esp_netif_init());
-
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_create_default_wifi_sta();
-
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK(esp_wifi_init(&cfg));
-
-    esp_event_handler_instance_t instance_any_id;
-    esp_event_handler_instance_t instance_got_ip;
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, &event_handler, NULL, &instance_any_id));
-    ESP_ERROR_CHECK(esp_event_handler_instance_register(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, &event_handler, NULL, &instance_got_ip));
-
-    wifi_config_t wifi_config;
-    memset(&wifi_config, 0, sizeof(wifi_config_t));
-
-    // Set the specific fields
-    strcpy((char*)wifi_config.sta.ssid, WIFI_SSID);
-    strcpy((char*)wifi_config.sta.password, WIFI_PASSWORD);
-    wifi_config.sta.threshold.authmode = WIFI_AUTH_WPA2_PSK;
-    wifi_config.sta.pmf_cfg.capable = true;
-    wifi_config.sta.pmf_cfg.required = false;
-    ESP_ERROR_CHECK(esp_wifi_set_mode(WIFI_MODE_STA));
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_STA, &wifi_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-
-    ESP_LOGI(TAG, "wifi_init_sta finished.");
-
-    EventBits_t bits = xEventGroupWaitBits(s_wifi_event_group,
-                                           WIFI_CONNECTED_BIT | WIFI_FAIL_BIT,
-                                           pdFALSE, pdFALSE, portMAX_DELAY);
-
-    if (bits & WIFI_CONNECTED_BIT) {
-        ESP_LOGI(TAG, "connected to ap SSID:%s password:%s", ssid,
-                 password);
-    } else if (bits & WIFI_FAIL_BIT) {
-        ESP_LOGI(TAG, "Failed to connect to SSID:%s, password:%s", ssid,
-                 password);
-    } else {
-        ESP_LOGE(TAG, "UNEXPECTED EVENT");
-    }
-
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(
-        IP_EVENT, IP_EVENT_STA_GOT_IP, instance_got_ip));
-    ESP_ERROR_CHECK(esp_event_handler_instance_unregister(
-        WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
-    vEventGroupDelete(s_wifi_event_group);
-}
+#include "wifi.h"
+#include "data.h"
 
 void nvs_init() {
     esp_err_t ret = nvs_flash_init();
@@ -111,12 +23,13 @@ void nvs_init() {
     ESP_ERROR_CHECK(ret);
 }
 
-
 void socket_tcp(){
     struct sockaddr_in server_addr;
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
     inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+
+    ESP_LOGI(TAG, "Conectando con servidor (%s:%u)", SERVER_IP, SERVER_PORT);
 
     // Crear un socket
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -132,28 +45,31 @@ void socket_tcp(){
         return;
     }
 
-    // Enviar mensaje "Hola Mundo"
-    send(sock, "hola mundo", strlen("hola mundo"), 0);
+    // Generar y enviar datos
+    proto_2_data_t data;
+    fill_proto_2_data(&data);
 
-    // Recibir respuesta
+    send(sock, &data, sizeof data, 0);
+    ESP_LOGI(TAG, "Datos enviados: (%hhu, %lu, %hhu, %lu, %hhu, %f)", 
+             data.batt_level, data.timestamp, data.temp, data.press, data.hum, data.co);
 
-    char rx_buffer[128];
-    int rx_len = recv(sock, rx_buffer, sizeof(rx_buffer) - 1, 0);
-    if (rx_len < 0) {
-        ESP_LOGE(TAG, "Error al recibir datos");
+    // Recibir datos de vuelta
+    ssize_t data_len = recv(sock, &data, sizeof data, 0);
+    if (data_len < sizeof data) {
+        ESP_LOGE(TAG, "Volumen de datos recibidos incorrecto: %i (esperado: %u)", data_len, sizeof data);
         return;
     }
-    ESP_LOGI(TAG, "Datos recibidos: %s", rx_buffer);
+    ESP_LOGI(TAG, "Datos recibidos: (%hhu, %lu, %hhu, %lu, %hhu, %f)",
+             data.batt_level, data.timestamp, data.temp, data.press, data.hum, data.co);
     
     // Cerrar el socket
     close(sock);
 }
 
-
-
-void app_main(void){
+void app_main(void) {
     nvs_init();
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
     ESP_LOGI(TAG,"Conectado a WiFi!\n");
     socket_tcp();
 }
+
