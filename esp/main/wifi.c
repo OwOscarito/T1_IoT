@@ -9,6 +9,8 @@
 
 #include "wifi.h"
 
+static const char* TAG = "WIFI";
+
 int s_retry_num = 0;
 EventGroupHandle_t s_wifi_event_group;
 
@@ -87,4 +89,5 @@ void wifi_init_sta(char* ssid, char* password) {
         WIFI_EVENT, ESP_EVENT_ANY_ID, instance_any_id));
     vEventGroupDelete(s_wifi_event_group);
 }
+
 

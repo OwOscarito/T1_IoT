@@ -1,3 +1,5 @@
+#ifndef WIFI_H
+#define WIFI_H
 
 // Credenciales de la red Wifi (configurar con idf.py menuconfig)
 #define WIFI_SSID CONFIG_WIFI_SSID
@@ -8,7 +10,6 @@
 #define WIFI_CONNECTED_BIT BIT0
 #define WIFI_FAIL_BIT BIT1
 
-static const char* TAG = "MAIN";
-
 void wifi_init_sta(char* ssid, char* password);
 
+#endif // WIFI_H

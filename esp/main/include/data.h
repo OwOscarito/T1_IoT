@@ -1,12 +1,15 @@
+#ifndef DATA_H
+#define DATA_H
 
+#include <stddef.h>
 #include <stdint.h>
 
 typedef struct __attribute__((packed)) {
-    uint16_t id;
+    uint16_t packet_id;
     uint8_t mac[6];
-    uint8_t layer_4_proto;
-    uint8_t data_proto;
-    uint16_t len;
+    uint8_t transport_layer;
+    uint8_t id_protocol;
+    uint16_t packet_len;
 } packet_header_t;
 
 typedef struct __attribute__((packed)) {
@@ -48,12 +51,21 @@ typedef struct __attribute__((packed)) {
     float rgyr_z[2000];
 } proto_4_data_t;
 
+void fill_proto_0_data(void* buf);
+void fill_proto_1_data(void* buf);
+void fill_proto_2_data(void* buf);
+void fill_proto_3_data(void* buf);
+void fill_proto_4_data(void* buf);
 
-void fill_proto_0_data(proto_0_data_t *data);
-void fill_proto_1_data(proto_1_data_t *data);
-void fill_proto_2_data(proto_2_data_t *data);
-void fill_proto_3_data(proto_3_data_t *data);
-void fill_proto_4_data(proto_4_data_t *data);
 
-float random_float(float min, float max);
+extern const size_t PROTO_NUM;
 
+extern const size_t DATA_LENGTHS[];
+
+typedef void (*fill_func)(void*);
+
+extern const fill_func FILL_FUNCS[];
+
+void* gen_packet(uint16_t packet_id, uint8_t transport_layer, uint8_t id_protocol);
+
+#endif // DATA_H
