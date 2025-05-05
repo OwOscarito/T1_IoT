@@ -1,6 +1,8 @@
 import os
 import typing
-from peewee import Model, PostgresqlDatabase, TimestampField, IntegerField, CharField, FloatField, CompositeKey
+from peewee import Model, PostgresqlDatabase, TimestampField, IntegerField, CharField, FloatField, CompositeKey, SmallIntegerField
+from playhouse.postgres_ext import ArrayField
+
 
 POSTGRES_DB = os.getenv('POSTGRES_DB', 'postgres')
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
@@ -36,11 +38,42 @@ class Data(Model):
     device_id = IntegerField()
     mac_address = CharField()
 
+    batt_level = SmallIntegerField()
+    timestamp = IntegerField()
+    temp = SmallIntegerField()
+    press = IntegerField()
+    hum = SmallIntegerField()
+    co = FloatField()
+
+    rms = FloatField()
+    amp_x = FloatField()
+    frec_x = FloatField()
+    amp_y = FloatField()
+    frec_y = FloatField()
+    amp_z = FloatField()
+    frec_z = FloatField()
+
+    acc_x = ArrayField(FloatField)
+    acc_y = ArrayField(FloatField)
+    acc_z = ArrayField(FloatField)
+    rgyr_x = ArrayField(FloatField)
+    rgyr_y = ArrayField(FloatField)
+    rgyr_z = ArrayField(FloatField)
+
     @typing.final
     class Meta():
         primary_key = CompositeKey('device_id', 'timestamp')
-        database: PostgresqlDatabase = db
+        database = db
 
 
-db.create_tables([Data])
+class Logs(BaseModel):
+    device_id = IntegerField()
+
+class Configuration(BaseModel):
+    protocol_id = IntegerField()
+    
+class Loss(BaseModel):
+    pass
+
+db.create_tables([Data, Logs, Configuration, Loss])
 
