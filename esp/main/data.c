@@ -1,4 +1,5 @@
 
+#include <stddef.h>
 #include <stdint.h>
 #include <esp_random.h>
 #include <string.h>
@@ -28,6 +29,47 @@ void random_float_vector(float *vector, uint32_t len, float min, float max) {
 uint32_t random_int(uint32_t min, uint32_t max) {
     return min + esp_random() % (max - min + 1);
 }
+
+
+typedef struct __attribute__((packed)) {
+    uint8_t batt_level;
+} proto_0_data_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t batt_level;
+    uint32_t timestamp;
+} proto_1_data_t;
+
+typedef struct __attribute__((packed)) {
+    uint8_t batt_level;
+    uint32_t timestamp;
+    uint8_t temp;
+    uint32_t press;
+    uint8_t hum;
+    float co;
+} proto_2_data_t;
+
+typedef struct __attribute__((packed)) {
+    proto_2_data_t proto_2;
+    float rms;
+    float amp_x;
+    float frec_x;
+    float amp_y;
+    float frec_y;
+    float amp_z;
+    float frec_z;
+} proto_3_data_t;
+
+typedef struct __attribute__((packed)) {
+    proto_2_data_t proto_2;
+    float acc_x[2000];
+    float acc_y[2000];
+    float acc_z[2000];
+    float rgyr_x[2000];
+    float rgyr_y[2000];
+    float rgyr_z[2000];
+} proto_4_data_t;
+
 
 void fill_proto_0_data(void* buf) {
     proto_0_data_t *data = (proto_0_data_t*) buf;
@@ -72,12 +114,19 @@ void fill_proto_4_data(void* buf) {
     random_float_vector(data->rgyr_x, 6000, -1000.0, 1000.0);
 }
 
+void fill_proto_5_data(void* buf) {
+    return ;
+}
+
+typedef void (*fill_func)(void*);
+
 const size_t DATA_LENGTHS[] = {
     sizeof(proto_0_data_t),
     sizeof(proto_1_data_t),
     sizeof(proto_2_data_t),
     sizeof(proto_3_data_t),
     sizeof(proto_4_data_t),
+    0,
 };
 
 const fill_func FILL_FUNCS[] = {
@@ -86,9 +135,18 @@ const fill_func FILL_FUNCS[] = {
     fill_proto_2_data,
     fill_proto_3_data,
     fill_proto_4_data,
+    fill_proto_5_data,
 };
 
 const size_t PROTO_NUM = sizeof(DATA_LENGTHS) / sizeof(size_t);
+const size_t HEADER_LENGTH = sizeof(packet_header_t);
+const size_t MAX_PACKET_LENGTH = sizeof(proto_4_data_t) + HEADER_LENGTH;
+
+
+size_t get_packet_length(uint8_t id_protocol) {
+    size_t data_length = id_protocol < PROTO_NUM? DATA_LENGTHS[id_protocol] : 0;
+    return HEADER_LENGTH + data_length;
+}
 
 void gen_header(
     packet_header_t *header, uint16_t packet_id,
@@ -101,21 +159,13 @@ void gen_header(
     header->packet_len = packet_len;
 }
 
-void* gen_packet(uint16_t packet_id, uint8_t transport_layer, uint8_t id_protocol) {
+void gen_packet(void* packet_buf, uint16_t packet_id, uint8_t transport_layer, uint8_t id_protocol) {
     if (id_protocol >= PROTO_NUM) {
         ESP_LOGE(TAG, "Se intentó generar un paquere con un protocolo invalido (%hhu).", id_protocol);
-        return NULL;
     }
 
-    size_t data_len = DATA_LENGTHS[id_protocol];
-    size_t header_len = sizeof(packet_header_t);
-    size_t packet_len = header_len + data_len;
+    gen_header((packet_header_t*) packet_buf, packet_id, transport_layer, packet_id, get_packet_length(id_protocol));
 
-    uint8_t *buf = malloc(packet_len);
-
-    gen_header((packet_header_t*) buf, packet_id, transport_layer, packet_id, packet_len);
-
-    FILL_FUNCS[id_protocol](buf + header_len);
-    
-    return buf;
+    FILL_FUNCS[id_protocol](packet_buf + HEADER_LENGTH);
 }
+

@@ -27,19 +27,35 @@ void app_main(void) {
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
     ESP_LOGI(TAG,"Conectado a WiFi!\n");
 
-    while (1) {
-        db_config_t db_conf;
-        if (query_config(&db_conf)) { continue; }
+    void* packet_buf = malloc(MAX_PACKET_LENGTH);
 
+    while (1) {
+        int sock = gen_tcp_socket();
+
+        gen_packet(packet_buf, 0, TCP, QUERY_PROTOCOL);
+        int err = send_data(sock, packet_buf, get_packet_length(QUERY_PROTOCOL));
+        if (err < get_packet_length(QUERY_PROTOCOL)) {
+            close(sock);
+            continue;
+        }
+
+        db_config_t db_conf;
+        int recv = receive_data(sock, &db_conf, sizeof(db_config_t));
+        if (recv <= sizeof(db_config_t)) {
+            close(sock);
+            continue;
+        }
+        close(sock);
 
         if (db_conf.transport_layer == TCP) {
             int tcp_sock = gen_tcp_socket();
 
             uint16_t packet_id = 1;
-            packet_header_t* packet = (packet_header_t*) gen_packet(packet_id, TCP, 3);
+            gen_packet(packet_buf, packet_id, TCP, PROTOCOL3);
 
+            packet_header_t* packet = (packet_header_t*)packet_buf;
             send_data(tcp_sock, (void*)packet, packet->packet_len);
-            free(packet);
+
             close(tcp_sock);
 
         } else if (db_conf.transport_layer == UDP) {
@@ -48,5 +64,6 @@ void app_main(void) {
             close(udp_sock);
         }
     }
+    free(packet_buf);
 }
 

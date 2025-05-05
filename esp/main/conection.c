@@ -79,24 +79,4 @@ ssize_t receive_data(int sock, void *buf, ssize_t buf_len) {
     return recv_len;
 }
 
-int query_config(db_config_t *db_conf) {
-    int sock = gen_tcp_socket();
-
-    char *query_str = "[QUERY_CONFIG]";
-    int err = send_data(sock, query_str, 15);
-    if (err <= 0) {
-        close(sock);
-        return 1;
-    }
-    
-    int recv = receive_data(sock, db_conf, sizeof(db_config_t));
-    if (recv <= 0) {
-        close(sock);
-        return 1;
-    }
-
-    close(sock);
-    return 0;
-}
-
 
