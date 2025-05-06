@@ -9,6 +9,7 @@
 #include <esp_log.h>
 
 #include "data.h"
+#include "connection.h"
 
 static const char* TAG = "DATA";
 
@@ -70,7 +71,6 @@ typedef struct __attribute__((packed)) {
     float rgyr_z[2000];
 } proto_4_data_t;
 
-
 void fill_proto_0_data(void* buf) {
     proto_0_data_t *data = (proto_0_data_t*) buf;
     data->batt_level = random_int(1, 100);
@@ -84,7 +84,6 @@ void fill_proto_1_data(void* buf) {
 
 void fill_proto_2_data(void* buf) {
     proto_2_data_t *data = (proto_2_data_t*) buf;
-
     data->batt_level = (uint8_t) random_int(1, 100);
     data->timestamp = time(NULL);
     data->temp = random_int(5, 30);
@@ -114,9 +113,6 @@ void fill_proto_4_data(void* buf) {
     random_float_vector(data->rgyr_x, 6000, -1000.0, 1000.0);
 }
 
-void fill_proto_5_data(void* buf) {
-    return ;
-}
 
 typedef void (*fill_func)(void*);
 
@@ -126,7 +122,6 @@ const size_t DATA_LENGTHS[] = {
     sizeof(proto_2_data_t),
     sizeof(proto_3_data_t),
     sizeof(proto_4_data_t),
-    0,
 };
 
 const fill_func FILL_FUNCS[] = {
@@ -135,37 +130,39 @@ const fill_func FILL_FUNCS[] = {
     fill_proto_2_data,
     fill_proto_3_data,
     fill_proto_4_data,
-    fill_proto_5_data,
 };
 
-const size_t PROTO_NUM = sizeof(DATA_LENGTHS) / sizeof(size_t);
+const size_t PROTOCOL_COUNT = sizeof(FILL_FUNCS) / sizeof(size_t);
 const size_t HEADER_LENGTH = sizeof(packet_header_t);
-const size_t MAX_PACKET_LENGTH = sizeof(proto_4_data_t) + HEADER_LENGTH;
+const size_t HANDSHAKE_LENGTH = HEADER_LENGTH + sizeof(uint32_t);
+const size_t MAX_PACKET_LENGTH = HEADER_LENGTH + sizeof(proto_4_data_t);
 
-
-size_t get_packet_length(uint8_t id_protocol) {
-    size_t data_length = id_protocol < PROTO_NUM? DATA_LENGTHS[id_protocol] : 0;
+size_t get_packet_length(id_protocol_t id_protocol) {
+    size_t data_length = id_protocol < PROTOCOL_COUNT? DATA_LENGTHS[id_protocol] : 0;
     return HEADER_LENGTH + data_length;
 }
 
-void gen_header(
-    packet_header_t *header, uint16_t packet_id,
-    uint8_t transport_layer, uint8_t id_protocol, uint16_t packet_len
-) {
+void gen_header(packet_header_t *header, uint16_t packet_id, const uint8_t mac_address[6],
+                uint8_t transport_layer, id_protocol_t id_protocol, uint16_t packet_len) {
     header->packet_id = packet_id;
-    esp_wifi_get_mac(WIFI_IF_STA, header->mac);
+    memcpy(header->mac, mac_address, 6);
     header->transport_layer = transport_layer;
     header->id_protocol = id_protocol;
     header->packet_len = packet_len;
 }
 
-void gen_packet(void* packet_buf, uint16_t packet_id, uint8_t transport_layer, uint8_t id_protocol) {
-    if (id_protocol >= PROTO_NUM) {
-        ESP_LOGE(TAG, "Se intentó generar un paquere con un protocolo invalido (%hhu).", id_protocol);
-    }
 
-    gen_header((packet_header_t*) packet_buf, packet_id, transport_layer, packet_id, get_packet_length(id_protocol));
+void gen_packet(void* packet_buf, uint16_t packet_id, const uint8_t mac_address[6],
+                uint8_t transport_layer, id_protocol_t id_protocol ) {
+    gen_header((packet_header_t*) packet_buf, packet_id, mac_address,
+               transport_layer, id_protocol, get_packet_length(id_protocol));
 
     FILL_FUNCS[id_protocol](packet_buf + HEADER_LENGTH);
 }
+
+void gen_handshake(void* packet_buf, const uint8_t mac_address[6], uint32_t id_device) {
+    gen_header((packet_header_t*) packet_buf, 0, mac_address, TCP, HANDSHAKE, HANDSHAKE_LENGTH);
+    *(uint32_t*)(packet_buf + HEADER_LENGTH) = id_device; // ._.XD
+}
+
 

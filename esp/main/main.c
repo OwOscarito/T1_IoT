@@ -4,6 +4,7 @@
 #include <freertos/event_groups.h>
 #include <nvs_flash.h>
 #include <lwip/sockets.h>
+#include <stdint.h>
 
 #include "wifi.h"
 #include "connection.h"
@@ -25,40 +26,29 @@ void nvs_init() {
 void app_main(void) {
     nvs_init();
     wifi_init_sta(WIFI_SSID, WIFI_PASSWORD);
-    ESP_LOGI(TAG,"Conectado a WiFi!\n");
+    ESP_LOGI(TAG, "Conectado a WiFi!\n");
 
+    uint8_t mac[6];
+    get_mac_address(mac);
+
+    uint32_t id_device = generate_device_id(mac);
     void* packet_buf = malloc(MAX_PACKET_LENGTH);
 
     while (1) {
-        int sock = gen_tcp_socket();
+        db_config_t db_config = handshake(mac, id_device);
 
-        gen_packet(packet_buf, 0, TCP, QUERY_PROTOCOL);
-        int err = send_data(sock, packet_buf, get_packet_length(QUERY_PROTOCOL));
-        if (err < get_packet_length(QUERY_PROTOCOL)) {
-            close(sock);
-            continue;
-        }
-
-        db_config_t db_conf;
-        int recv = receive_data(sock, &db_conf, sizeof(db_config_t));
-        if (recv <= sizeof(db_config_t)) {
-            close(sock);
-            continue;
-        }
-        close(sock);
-
-        if (db_conf.transport_layer == TCP) {
+        if (db_config.transport_layer == TCP) {
             int tcp_sock = gen_tcp_socket();
 
             uint16_t packet_id = 1;
-            gen_packet(packet_buf, packet_id, TCP, PROTOCOL3);
+            gen_packet(packet_buf, packet_id, mac, TCP, PROTOCOL3);
 
             packet_header_t* packet = (packet_header_t*)packet_buf;
             send_data(tcp_sock, (void*)packet, packet->packet_len);
 
             close(tcp_sock);
 
-        } else if (db_conf.transport_layer == UDP) {
+        } else if (db_config.transport_layer == UDP) {
             int udp_sock = gen_udp_socket();
             //send_data();
             close(udp_sock);
