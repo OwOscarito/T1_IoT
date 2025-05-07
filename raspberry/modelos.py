@@ -32,46 +32,52 @@ class BaseModel(Model):
 
 @typing.final
 class Data(Model):
-    type = CharField()
-    value = FloatField()
-    timestamp = TimestampField()
-    device_id = IntegerField()
-    mac_address = CharField()
+    batt_level = SmallIntegerField(null=True)
+    # este timestamp representa el valor que se envia desde el esp,
+    # es distinto del arrival_timestamp, que representa cuando llega el paquete al server
+    timestamp = IntegerField(null=True) 
 
-    batt_level = SmallIntegerField()
-    timestamp = IntegerField()
-    temp = SmallIntegerField()
-    press = IntegerField()
-    hum = SmallIntegerField()
-    co = FloatField()
+    temp = SmallIntegerField(null=True)
+    press = IntegerField(null=True)
+    hum = SmallIntegerField(null=True)
+    co = FloatField(null=True)
 
-    rms = FloatField()
-    amp_x = FloatField()
-    frec_x = FloatField()
-    amp_y = FloatField()
-    frec_y = FloatField()
-    amp_z = FloatField()
-    frec_z = FloatField()
+    rms = FloatField(null=True)
+    amp_x = FloatField(null=True)
+    frec_x = FloatField(null=True)
+    amp_y = FloatField(null=True)
+    frec_y = FloatField(null=True)
+    amp_z = FloatField(null=True)
+    frec_z = FloatField(null=True)
 
-    acc_x = ArrayField(FloatField)
-    acc_y = ArrayField(FloatField)
-    acc_z = ArrayField(FloatField)
-    rgyr_x = ArrayField(FloatField)
-    rgyr_y = ArrayField(FloatField)
-    rgyr_z = ArrayField(FloatField)
+    acc_x = ArrayField(field_class=FloatField, null=True)
+    acc_y = ArrayField(field_class=FloatField, null=True)
+    acc_z = ArrayField(field_class=FloatField, null=True)
+    rgyr_x = ArrayField(field_class=FloatField, null=True)
+    rgyr_y = ArrayField(field_class=FloatField, null=True)
+    rgyr_z = ArrayField(field_class=FloatField, null=True)
+
+    arrival_timestamp = TimestampField(null=False)
+    id_device = IntegerField(null=False)
+    mac_address = CharField(null=False, max_length=17)
 
     @typing.final
-    class Meta():
-        primary_key = CompositeKey('device_id', 'timestamp')
+    class Meta:
+        primary_key = CompositeKey('id_device', 'arrival_timestamp')
         database = db
 
-
+@typing.final
 class Logs(BaseModel):
-    device_id = IntegerField()
+    id_device = IntegerField()
+    transport_layer = SmallIntegerField()
+    arrival_timestamp = TimestampField()
 
+
+@typing.final
 class Configuration(BaseModel):
-    protocol_id = IntegerField()
+    id_protocol = SmallIntegerField()
     
+@typing.final
 class Loss(BaseModel):
     pass
 
