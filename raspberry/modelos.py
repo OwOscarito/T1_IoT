@@ -1,8 +1,10 @@
 import os
-import typing
-from peewee import Model, PostgresqlDatabase, TimestampField, IntegerField, CharField, FloatField, CompositeKey, SmallIntegerField
+from typing import final
+from peewee import Model, PostgresqlDatabase, TimestampField, IntegerField, \
+    CharField, FloatField, CompositeKey, SmallIntegerField
 from playhouse.postgres_ext import ArrayField
 
+import macaddr
 
 POSTGRES_DB = os.getenv('POSTGRES_DB', 'postgres')
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
@@ -19,18 +21,13 @@ db = PostgresqlDatabase(
 )
 _ = db.connect()
     
-# Definición de un modelo
-class BaseModel(Model):
-    class Meta:
-        database: PostgresqlDatabase = db
-
 # Ahora puedes definir tus modelos específicos heredando de BaseModel
 # y db estará conectado al servicio de PostgreSQL cuando realices operaciones de base de datos.
 
 # Ver la documentación de peewee para más información, es super parecido a Django
 # https://docs.peewee-orm.com/en/latest/peewee/quickstart.html
 
-@typing.final
+@final
 class Data(Model):
     batt_level = SmallIntegerField(null=True)
     # este timestamp representa el valor que se envia desde el esp,
@@ -57,29 +54,59 @@ class Data(Model):
     rgyr_y = ArrayField(field_class=FloatField, null=True)
     rgyr_z = ArrayField(field_class=FloatField, null=True)
 
-    arrival_timestamp = TimestampField(null=False)
-    id_device = IntegerField(null=False)
-    mac_address = CharField(null=False, max_length=17)
+    arrival_timestamp = TimestampField()
+    id_device = IntegerField()
+    mac_address = CharField(max_length=17)
 
-    @typing.final
+    @final
     class Meta:
         primary_key = CompositeKey('id_device', 'arrival_timestamp')
         database = db
 
-@typing.final
-class Logs(BaseModel):
+@final
+class Logs(Model):
     id_device = IntegerField()
+    mac_address = CharField(max_length=17)
     transport_layer = SmallIntegerField()
+    id_protocol = IntegerField()
     arrival_timestamp = TimestampField()
 
+    @final
+    class Meta:
+        primary_key = CompositeKey('id_device', 'arrival_timestamp')
+        database = db
 
-@typing.final
-class Configuration(BaseModel):
+
+
+@final
+class Configuration(Model):
     id_protocol = SmallIntegerField()
+    transport_layer = SmallIntegerField()
+
+    @final
+    class Meta:
+        primary_key = CompositeKey('id_protocol', 'transport_layer')
+        database = db
     
-@typing.final
-class Loss(BaseModel):
-    pass
+@final
+class Loss(Model):
+    id_device = IntegerField()
+    timestamp = IntegerField()
+    arrival_timestamp = TimestampField()
+    delay = IntegerField()
+    packet_loss = IntegerField()
+
+    @final
+    class Meta:
+        primary_key = CompositeKey('id_device', 'arrival_timestamp')
+        database = db
 
 db.create_tables([Data, Logs, Configuration, Loss])
+
+def get_id_device(mac: macaddr.MacAddress) -> int | None:
+    ''' 
+    Se supone que retorne el id del dispositivo ocupando su dirección MAC,
+    se debería poder sacar de la tabla Logs.
+    '''
+    return None
 
