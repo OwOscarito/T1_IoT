@@ -1,11 +1,13 @@
 
 #include <esp_log.h>
+#include <esp_sleep.h>
 #include <freertos/FreeRTOS.h>
 #include <freertos/event_groups.h>
 #include <nvs_flash.h>
 #include <lwip/sockets.h>
 #include <stdint.h>
 
+#include "freertos/idf_additions.h"
 #include "wifi.h"
 #include "connection.h"
 #include "data.h"
@@ -33,24 +35,45 @@ void app_main(void) {
 
     uint32_t id_device = generate_device_id(mac);
     void* packet_buf = malloc(MAX_PACKET_LENGTH);
+    uint16_t packet_id = 1;
 
     while (1) {
         db_config_t db_config = handshake(mac, id_device);
+        ESP_LOGI(TAG, "db_config: %i %i", db_config.id_protocol, db_config.transport_layer);
 
         if (db_config.transport_layer == TCP) {
             int tcp_sock = gen_tcp_socket();
-
-            uint16_t packet_id = 1;
-            gen_packet(packet_buf, packet_id, mac, TCP, PROTOCOL3);
+            
+            gen_packet(packet_buf, packet_id, mac, TCP, db_config.id_protocol);
 
             packet_header_t* packet = (packet_header_t*)packet_buf;
             send_data(tcp_sock, (void*)packet, packet->packet_len);
-
+            
             close(tcp_sock);
+            
+            esp_sleep_enable_timer_wakeup(60 * 1000000);
+            esp_deep_sleep_start();
+
+            packet_id++;
 
         } else if (db_config.transport_layer == UDP) {
             int udp_sock = gen_udp_socket();
-            //send_data();
+            do {
+                gen_packet(packet_buf, packet_id, mac, UDP, db_config.id_protocol);
+    
+                packet_header_t* packet = (packet_header_t*)packet_buf;
+                send_data(udp_sock, (void*)packet, packet->packet_len);
+                
+                packet_header_t recv_header;
+                receive_data(udp_sock, &recv_header, HEADER_LENGTH); 
+
+                db_config.transport_layer = recv_header.transport_layer;
+                db_config.transport_layer = recv_header.id_protocol;
+
+                packet_id++;
+            } while (db_config.transport_layer == UDP);
+            
+            packet_id = 0;
             close(udp_sock);
         }
     }

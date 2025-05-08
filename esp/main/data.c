@@ -164,5 +164,3 @@ void gen_handshake(void* packet_buf, const uint8_t mac_address[6], uint32_t id_d
     gen_header((packet_header_t*) packet_buf, 0, mac_address, TCP, HANDSHAKE, HANDSHAKE_LENGTH);
     *(uint32_t*)(packet_buf + HEADER_LENGTH) = id_device; // ._.XD
 }
-
-

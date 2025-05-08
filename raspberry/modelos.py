@@ -1,10 +1,11 @@
 import os
 from typing import final
-from peewee import Model, PostgresqlDatabase, TimestampField, IntegerField, \
+from peewee import Model, PostgresqlDatabase, IntegerField, \
     CharField, FloatField, CompositeKey, SmallIntegerField
 from playhouse.postgres_ext import ArrayField
 
 import macaddr
+import headers
 
 POSTGRES_DB = os.getenv('POSTGRES_DB', 'postgres')
 POSTGRES_HOST = os.getenv('POSTGRES_HOST', 'localhost')
@@ -21,14 +22,14 @@ db = PostgresqlDatabase(
 )
 _ = db.connect()
     
-# Ahora puedes definir tus modelos específicos heredando de BaseModel
-# y db estará conectado al servicio de PostgreSQL cuando realices operaciones de base de datos.
 
-# Ver la documentación de peewee para más información, es super parecido a Django
-# https://docs.peewee-orm.com/en/latest/peewee/quickstart.html
+class BaseModel(Model):
+    @final
+    class Meta:
+        database = db
 
 @final
-class Data(Model):
+class Data(BaseModel):
     batt_level = SmallIntegerField(null=True)
     # este timestamp representa el valor que se envia desde el esp,
     # es distinto del arrival_timestamp, que representa cuando llega el paquete al server
@@ -54,59 +55,58 @@ class Data(Model):
     rgyr_y = ArrayField(field_class=FloatField, null=True)
     rgyr_z = ArrayField(field_class=FloatField, null=True)
 
-    arrival_timestamp = TimestampField()
+    arrival_timestamp = IntegerField()
     id_device = IntegerField()
     mac_address = CharField(max_length=17)
 
-    @final
-    class Meta:
-        primary_key = CompositeKey('id_device', 'arrival_timestamp')
-        database = db
 
 @final
-class Logs(Model):
+class Logs(BaseModel):
     id_device = IntegerField()
     mac_address = CharField(max_length=17)
     transport_layer = SmallIntegerField()
     id_protocol = IntegerField()
-    arrival_timestamp = TimestampField()
-
-    @final
-    class Meta:
-        primary_key = CompositeKey('id_device', 'arrival_timestamp')
-        database = db
+    arrival_timestamp = IntegerField()
 
 
 
 @final
-class Configuration(Model):
+class Configuration(BaseModel):
     id_protocol = SmallIntegerField()
     transport_layer = SmallIntegerField()
-
-    @final
-    class Meta:
-        primary_key = CompositeKey('id_protocol', 'transport_layer')
-        database = db
     
 @final
-class Loss(Model):
+class Loss(BaseModel):
     id_device = IntegerField()
     timestamp = IntegerField()
-    arrival_timestamp = TimestampField()
+    arrival_timestamp = IntegerField()
     delay = IntegerField()
     packet_loss = IntegerField()
 
-    @final
-    class Meta:
-        primary_key = CompositeKey('id_device', 'arrival_timestamp')
-        database = db
-
 db.create_tables([Data, Logs, Configuration, Loss])
 
-def get_id_device(mac: macaddr.MacAddress) -> int | None:
-    ''' 
-    Se supone que retorne el id del dispositivo ocupando su dirección MAC,
-    se debería poder sacar de la tabla Logs.
-    '''
-    return None
+def get_id_device(mac: macaddr.MacAddress) -> int:
+    log: Logs | None = Logs.get_or_none(Logs.mac_address == mac.as_str)
+    if log == None:
+        raise Exception(f"No se encontró el ID para el dispositivo con MAC {mac.as_str}")
 
+    return log.id_device
+
+def get_db_config() -> tuple[headers.Protocol, headers.TransportLayer]:
+    db_config: Configuration | None = Configuration.get_or_none()
+    if db_config == None:
+        raise Exception("No hay configuración en la base de datos")
+    return headers.Protocol(db_config.id_protocol), headers.TransportLayer(db_config.transport_layer)
+    
+def set_db_config(id_protocol: headers.Protocol, transport_layer: headers.TransportLayer):
+    db_config: Configuration | None = Configuration.get_or_none()
+    if db_config == None:
+        db_config = Configuration(
+            id_protocol=id_protocol.value, 
+            transport_layer=transport_layer.value
+            )
+        db_config.save(force_insert=True)
+    else:
+        db_config.id_protocol = id_protocol.value
+        db_config.transport_layer = transport_layer.value
+        db_config.save()

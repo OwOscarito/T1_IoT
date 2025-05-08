@@ -1,4 +1,6 @@
 
+#include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 
 #include <freertos/FreeRTOS.h>
@@ -7,6 +9,8 @@
 #include <lwip/sockets.h>
 #include <esp_mac.h>
 #include <esp_log.h>
+#include <stdlib.h>
+#include <sys/types.h>
 
 #include "connection.h"
 #include "data.h"
@@ -27,18 +31,23 @@ uint32_t generate_device_id(const uint8_t mac[6]) {
 
 int gen_tcp_socket() {
     struct sockaddr_in server_addr;
+    memset(&server_addr, 0, sizeof(server_addr));
     server_addr.sin_family = AF_INET;
     server_addr.sin_port = htons(SERVER_PORT);
-    inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr);
+
+    if (inet_pton(AF_INET, SERVER_IP, &server_addr.sin_addr.s_addr) != 1) {
+        ESP_LOGE(TAG, "Dirección invalida: %s", SERVER_IP);
+        return -1;
+    }
 
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     if (sock < 0) {
-        ESP_LOGE(TAG, "Error al crear el socket");
+        ESP_LOGE(TAG, "Error al creat socket");
         return -1;
     }
 
     if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-        ESP_LOGE(TAG, "Error al conectar");
+        ESP_LOGE(TAG, "Error conectando socket a: %s:%d", SERVER_IP, SERVER_PORT);
         close(sock);
         return -1;
     }
@@ -55,12 +64,6 @@ int gen_udp_socket(){
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
     if (sock < 0) {
         ESP_LOGE(TAG, "Error al crear el socket");
-        return -1;
-    }
-
-    if (connect(sock, (struct sockaddr *)&server_addr, sizeof(server_addr)) != 0) {
-        ESP_LOGE(TAG, "Error al conectar con servidor.");
-        close(sock);
         return -1;
     }
 
@@ -100,13 +103,23 @@ db_config_t handshake(const uint8_t mac_address[6], uint32_t id_device) {
 
     int err = send_data(sock, &packet_buf, sizeof(packet_buf));
     if (err < sizeof(packet_buf)) {
+        ESP_LOGE(TAG, "Error al enviar datos de handshake");
         close(sock);
         return (db_config_t){ TRANSPORT_UNSPECIFIED, HANDSHAKE };
     }
 
-    db_config_t db_config;
-    int recv = receive_data(sock, &db_config, sizeof(db_config_t));
-    if (recv != sizeof(db_config_t) || !validate_db_config(db_config)) {
+    packet_header_t header;
+    int recv = receive_data(sock, &header, HEADER_LENGTH); 
+    
+    db_config_t db_config = {header.transport_layer, header.id_protocol};
+
+    if (recv != HEADER_LENGTH) {
+        ESP_LOGE(TAG, "Largo incorrecta en respuesta del handshake (%i)", recv);
+        close(sock);
+        return (db_config_t){ TRANSPORT_UNSPECIFIED, HANDSHAKE };
+    } else if (validate_db_config(db_config)) {
+        ESP_LOGE(TAG, "Respuesta incorrecta en handshake (id_protocol: %hhu, transport_layer %hhu)", 
+            db_config.id_protocol, db_config.transport_layer);
         close(sock);
         return (db_config_t){ TRANSPORT_UNSPECIFIED, HANDSHAKE };
     }
@@ -114,5 +127,4 @@ db_config_t handshake(const uint8_t mac_address[6], uint32_t id_device) {
     close(sock);
     return db_config;
 }
-
 
