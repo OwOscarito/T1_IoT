@@ -110,3 +110,9 @@ def set_db_config(id_protocol: headers.Protocol, transport_layer: headers.Transp
         db_config.id_protocol = id_protocol.value
         db_config.transport_layer = transport_layer.value
         db_config.save()
+
+
+try:
+    _ = get_db_config()
+except Exception:
+    set_db_config(headers.Protocol.PROTOCOL0, headers.TransportLayer.TCP)

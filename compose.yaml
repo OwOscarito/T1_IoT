@@ -5,9 +5,28 @@ services:
     env_file: .env
     volumes:
       - postgres_data_iot:/var/lib/postgresql/data
-    restart: unless-stopped
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
+
+  adminer:
+    image: adminer
+    ports:
+      - ${ADMINER_PORT}:${ADMINER_PORT}
+    env_file: .env
+    depends_on:
+      - db
+
+  server:
+    build:
+      context: raspberry
+    env_file: .env
+    network_mode: host
+    volumes:
+      - ./raspberry:/server
+    ports:
+      - ${ADMINER_PORT}:${ADMINER_PORT}
+    depends_on:
+      - db
 
 volumes:
   postgres_data_iot:

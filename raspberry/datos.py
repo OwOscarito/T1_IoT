@@ -8,7 +8,9 @@ import headers
 
 proto_0_struct = struct.Struct('<B')
 def unpack_protocol_0(packet: bytes, arrival_timestamp: int, id_device: int, mac: macaddr.MacAddress) -> modelos.Data:
-    fields = proto_0_struct.unpack(packet[headers.header_len:proto_0_struct.size])
+    data_slice = packet[headers.header_len:]
+    fields = proto_0_struct.unpack(data_slice[:proto_0_struct.size])
+
     data = modelos.Data(
         arrival_timestamp = arrival_timestamp,
         id_device = id_device,
@@ -57,7 +59,7 @@ def unpack_protocol_2(packet: bytes, arrival_timestamp: int, id_device: int, mac
 proto_3_struct = struct.Struct(proto_2_struct.format + '7f')
 def unpack_protocol_3(packet: bytes, arrival_timestamp: int, id_device: int, mac: macaddr.MacAddress) -> modelos.Data:
     data = unpack_protocol_2(packet, arrival_timestamp, id_device, mac)
-    data_slice = packet[headers.header_len+proto_2_struct.size:]
+    data_slice = packet[headers.header_len:]
     fields = proto_3_struct.unpack(data_slice[:proto_3_struct.size])
 
     data.rms = fields[-7]

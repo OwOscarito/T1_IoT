@@ -158,6 +158,8 @@ void gen_packet(void* packet_buf, uint16_t packet_id, const uint8_t mac_address[
                transport_layer, id_protocol, get_packet_length(id_protocol));
 
     FILL_FUNCS[id_protocol](packet_buf + HEADER_LENGTH);
+
+    ESP_LOGI(TAG, "Paquete generado con transport_layer: %hhu, id_protocol: %hhu", transport_layer, id_protocol);
 }
 
 void gen_handshake(void* packet_buf, const uint8_t mac_address[6], uint32_t id_device) {
