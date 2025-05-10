@@ -52,7 +52,14 @@ void app_main(void) {
 
             packet_header_t* packet_header = packet_buf;
             send_tcp_data(tcp_sock, packet_buf, packet_header->packet_len);
-            
+
+            shutdown(tcp_sock, SHUT_WR);
+
+            packet_header_t ret_header;
+            receive_tcp_data(tcp_sock, &ret_header, HEADER_LENGTH);
+
+            shutdown(tcp_sock, SHUT_RD);
+
             close(tcp_sock);
             
             esp_sleep_enable_timer_wakeup(60 * 1000000);

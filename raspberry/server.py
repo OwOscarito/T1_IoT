@@ -16,30 +16,50 @@ HOST = os.getenv('SERVER_IP_ADDR', '0.0.0.0')
 PORT = int(os.getenv('SERVER_PORT', '1234'))
 MAC = macaddr.MacAddress.from_str(os.getenv('SERVER_MAC_ADDR', '00:00:00:00:00:00'))
 
+def receive_exactly(conn: socket.socket, total_bytes: int) -> bytes:
+    data = bytearray()
+    while len(data) < total_bytes:
+        chunk = conn.recv(total_bytes - len(data))
+        if not chunk:
+            raise ConnectionError("La conexión fue cerrada antes de tiempo")
+        data.extend(chunk)
+    return bytes(data)
+
+
 def handle_tcp(sock: socket.socket):
     conn, addr = sock.accept()
     print(f"Conexión TCP recibida de {addr}.", file=sys.stderr)
+    conn.settimeout(10.0)
 
     with conn:
-        packet = conn.recv(datos.max_packet_size, )
-        header = headers.Header.unpack(packet)
-        if (len(packet) < header.packet_len):
-            packet += conn.recv(header.packet_len - len(packet), socket.MSG_WAITALL)
+        header_bytes = receive_exactly(conn, headers.header_len)
+        header = headers.Header.unpack(header_bytes)
+        print(f"Paquete recibido con protocolo {header.id_protocol.name} y tamaño {header.packet_len}", file=sys.stderr)
 
+        print("Esperando paquete completo... ", file=sys.stderr, end='', flush=True)
+        data_bytes = receive_exactly(conn, header.packet_len - headers.header_len)
+        packet = header_bytes + data_bytes
+        print("Listo.", file=sys.stderr)
 
-        print(f"Paquete recibido con tamaño real {len(packet)}, reportado {header.packet_len} y protocolo {header.id_protocol.name}", file=sys.stderr)
+        conn.shutdown(socket.SHUT_RD)
+
+        # Siempre se envia un header de vuelta, incluso cuando el protocolo no es handshake, ya que el ESP
+        # siempre espera a recibir una respuesta del servidor, esto está hecho así para que el ESP no vaya a
+        # cerrar la conexión antes de tiempo y cause que no lleguen todos los datos (si pasa xd)
+        id_protocol, transport_layer = modelos.get_db_config()
+        response = headers.Header(
+            packet_id = 0,
+            mac = MAC,
+            transport_layer = transport_layer,
+            id_protocol = id_protocol,
+            packet_len = headers.header_len
+        )
+        conn.sendall(response.pack())
+
+        conn.shutdown(socket.SHUT_WR)
 
         if header.id_protocol == headers.Protocol.HANDSHAKE:
             id_device = cast(int, struct.unpack('<I', packet[headers.header_len:])[0])
-            id_protocol, transport_layer = modelos.get_db_config()
-            response = headers.Header(
-                packet_id = 0,
-                mac = MAC,
-                transport_layer = transport_layer,
-                id_protocol = id_protocol,
-                packet_len = headers.header_len
-            )
-            conn.sendall(response.pack())
 
         else:
             id_device = modelos.get_id_device(header.mac)
@@ -98,15 +118,16 @@ sel = selectors.DefaultSelector()
 
 tcp_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 tcp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+tcp_sock.setblocking(False)
 tcp_sock.bind((HOST, PORT))
 tcp_sock.listen()
-tcp_sock.setblocking(False)
-_ = sel.register(tcp_sock, selectors.EVENT_READ, handle_tcp)
 
 udp_sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 udp_sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-udp_sock.bind((HOST, PORT))
 udp_sock.setblocking(False)
+udp_sock.bind((HOST, PORT))
+
+_ = sel.register(tcp_sock, selectors.EVENT_READ, handle_tcp)
 _ = sel.register(udp_sock, selectors.EVENT_READ, handle_udp)
 
 _ = atexit.register(tcp_sock.close)

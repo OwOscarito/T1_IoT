@@ -44,7 +44,7 @@ int get_server_address(struct sockaddr_in* server_addr) {
 }
 
 
-struct timeval timeout = {.tv_sec = 2, .tv_usec = 0};
+struct timeval timeout = {.tv_sec = 10, .tv_usec = 0};
 
 int gen_tcp_socket(const struct sockaddr_in* server_addr) {
     int sock = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
@@ -95,7 +95,7 @@ ssize_t send_tcp_data(int sock, const void *data, size_t data_len) {
 
 ssize_t receive_tcp_data(int sock, void *buf, size_t buf_len) {
     ssize_t recv_len = recv(sock, buf, buf_len, 0);
-    if (recv_len <= 0) {
+    if (recv_len < 0) {
         ESP_LOGE(TAG, "Error al recibir datos por TCP: %s", strerror(errno));
     } else {
         ESP_LOGI(TAG, "Se recibieron %zd bytes por TCP.", recv_len);
@@ -148,8 +148,12 @@ db_config_t handshake(const uint8_t mac_address[6], uint32_t id_device,
         return (db_config_t){ TRANSPORT_UNSPECIFIED, HANDSHAKE };
     }
 
+    shutdown(sock, SHUT_WR); 
+
     packet_header_t header;
     int recv = receive_tcp_data(sock, &header, HEADER_LENGTH); 
+
+    shutdown(sock, SHUT_RD); 
     
     db_config_t db_config = {header.transport_layer, header.id_protocol};
 
