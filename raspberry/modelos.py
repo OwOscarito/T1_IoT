@@ -132,8 +132,10 @@ def update_loss(id_device: int, packet_id: int, timestamp: int | None):
     )
 
     if max_id_loss and latest_loss:
-        if (max_id_loss.packet_id + 1) < packet_id:
-            packet_loss = latest_loss.packet_loss + (max_id_loss.packet_id - packet_id)
+        if max_id_loss.packet_id < packet_id:
+            packet_loss = latest_loss.packet_loss + (max_id_loss.packet_id - packet_id - 1)
+        elif max_id_loss.packet_id == packet_id:
+            packet_loss = latest_loss.packet_loss
         else:
             packet_loss = latest_loss.packet_loss - 1
     else:
