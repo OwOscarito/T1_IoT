@@ -128,7 +128,7 @@ def update_loss(id_device: int, packet_id: int, timestamp: int | None):
     latest_loss: Loss | None = (
         Loss.select()
         .where(Loss.id_device == id_device)
-        .order_by(Loss.Loss.timestamp.desc())
+        .order_by(Loss.timestamp.desc())
         .first()
     )
 
