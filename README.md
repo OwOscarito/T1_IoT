@@ -11,7 +11,7 @@
 
 Primero es necesario crear un `.env`, se puede tomar el archivo `example.env` como base, el cual ya tiene las variables necesarias definidas, también es necesario poner la interfaz de red de la raspberry en modo AP, la forma más simple de hacer esto es con el siguiente comando:
 ```bash
-sudo nmcli device wifi hotspot band bg con-name hotspot ifname <interfaz> ssid <ssid> password <contraseña>
+sudo nmcli device wifi hotspot con-name hotspot ifname wlan0 ssid <ssid> password <contraseña>
 ```
 Para saber el nombre de las interfaces de red disponibles de red se puede usar el comando `ip link`, es importante saber que activar el hotspot la interfaz de red debe cambiar de modo cliente a modo AP, por lo que la conección al internet se verá cortada, eso incluye la conección por ssh, por lo que se deberá conectar el computador directo a la red de la Raspberry Pi para restablecer la conección.
 
@@ -31,9 +31,6 @@ Se utilizó docker para hostear tanto la base de datos como para el servidor, po
 ```bash
 docker compose up --build
 ```
-
-Lo cual también iniciará un servicio de adminer.
-
 
 ### Ejecución del cliente
 

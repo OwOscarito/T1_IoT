@@ -1,4 +1,5 @@
 import os
+import time
 from typing import final
 from peewee import Model, PostgresqlDatabase, IntegerField, \
     CharField, FloatField, CompositeKey, SmallIntegerField
@@ -78,9 +79,10 @@ class Configuration(BaseModel):
 @final
 class Loss(BaseModel):
     id_device = IntegerField()
-    timestamp = IntegerField()
+    packet_id = IntegerField()
+    timestamp = IntegerField(null=True)
     arrival_timestamp = IntegerField()
-    delay = IntegerField()
+    delay = IntegerField(null=True)
     packet_loss = IntegerField()
 
 db.create_tables([Data, Logs, Configuration, Loss])
@@ -110,6 +112,36 @@ def set_db_config(id_protocol: headers.Protocol, transport_layer: headers.Transp
         db_config.id_protocol = id_protocol.value
         db_config.transport_layer = transport_layer.value
         db_config.save()
+
+        import time
+
+
+def update_loss(id_device: int, packet_id: int, timestamp: int | None):
+    arrival_timestamp = int(time.time())
+
+    delay = arrival_timestamp - timestamp if timestamp is not None else None
+
+    latest_loss: Loss | None = (
+        Loss.select()
+        .where(Loss.id_device == id_device)
+        .order_by(Loss.packet_id.desc())
+        .first()
+    )
+
+    if latest_loss:
+        packet_loss = max(0, packet_id - latest_loss.packet_id - 1)
+    else:
+        packet_loss = 0
+
+    return Loss.create(
+        id_device=id_device,
+        packet_id=packet_id,
+        timestamp=timestamp,
+        arrival_timestamp=arrival_timestamp,
+        delay=delay,
+        packet_loss=packet_loss,
+    )
+
 
 
 try:

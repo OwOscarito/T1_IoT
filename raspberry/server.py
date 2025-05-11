@@ -12,9 +12,9 @@ import datos
 import macaddr
 import headers
 
-HOST = os.getenv('SERVER_IP_ADDR', '0.0.0.0')
-PORT = int(os.getenv('SERVER_PORT', '1234'))
-MAC = macaddr.MacAddress.from_str(os.getenv('SERVER_MAC_ADDR', '00:00:00:00:00:00'))
+HOST = os.getenv('SERVER_HOST', '0.0.0.0')
+PORT = int(os.getenv('SERVER_PORT', '7777'))
+MAC = macaddr.MacAddress.from_str(os.getenv('SERVER_MAC', '00:00:00:00:00:00'))
 
 def receive_exactly(conn: socket.socket, total_bytes: int) -> bytes:
     data = bytearray()
@@ -112,6 +112,8 @@ def handle_udp(sock: socket.socket):
     )
 
     sock.sendto(response.pack(), addr)
+
+    modelos.update_loss(id_device, header.packet_id, data.timestamp)
 
 
 sel = selectors.DefaultSelector()

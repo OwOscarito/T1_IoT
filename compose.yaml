@@ -8,23 +8,16 @@ services:
     ports:
       - ${POSTGRES_PORT}:${POSTGRES_PORT}
 
-  adminer:
-    image: adminer
-    ports:
-      - ${ADMINER_PORT}:${ADMINER_PORT}
-    env_file: .env
-    depends_on:
-      - db
-
   server:
     build:
       context: raspberry
     env_file: .env
-    network_mode: host
-    volumes:
-      - ./raspberry:/server
+    # network_mode: host
+    # volumes:
+    #   - ./raspberry:/server
     ports:
-      - ${ADMINER_PORT}:${ADMINER_PORT}
+      - "${SERVER_PORT}:${SERVER_PORT}/tcp"
+      - "${SERVER_PORT}:${SERVER_PORT}/udp"
     depends_on:
       - db
 
