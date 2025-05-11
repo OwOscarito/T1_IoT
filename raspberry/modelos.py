@@ -113,23 +113,29 @@ def set_db_config(id_protocol: headers.Protocol, transport_layer: headers.Transp
         db_config.transport_layer = transport_layer.value
         db_config.save()
 
-        import time
-
-
 def update_loss(id_device: int, packet_id: int, timestamp: int | None):
     arrival_timestamp = int(time.time())
 
     delay = arrival_timestamp - timestamp if timestamp is not None else None
 
-    latest_loss: Loss | None = (
+    max_id_loss: Loss | None = (
         Loss.select()
         .where(Loss.id_device == id_device)
         .order_by(Loss.packet_id.desc())
         .first()
     )
 
-    if latest_loss:
-        packet_loss = max(0, packet_id - latest_loss.packet_id - 1)
+    latest_loss: Loss | None = (
+        Loss.select()
+        .where(Loss.id_device == id_device)
+        .last()
+    )
+
+    if max_id_loss and latest_loss:
+        if (max_id_loss.packet_id + 1) < packet_id:
+            packet_loss = latest_loss.packet_loss + (max_id_loss.packet_id - packet_id)
+        else:
+            packet_loss = latest_loss.packet_loss - 1
     else:
         packet_loss = 0
 
@@ -141,8 +147,6 @@ def update_loss(id_device: int, packet_id: int, timestamp: int | None):
         delay=delay,
         packet_loss=packet_loss,
     )
-
-
 
 try:
     _ = get_db_config()
