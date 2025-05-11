@@ -128,7 +128,8 @@ def update_loss(id_device: int, packet_id: int, timestamp: int | None):
     latest_loss: Loss | None = (
         Loss.select()
         .where(Loss.id_device == id_device)
-        .last()
+        .order_by(Loss.Loss.timestamp.desc())
+        .first()
     )
 
     if max_id_loss and latest_loss:
